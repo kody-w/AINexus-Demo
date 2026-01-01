@@ -462,9 +462,41 @@
             this.hoveredPortal = null;
             this.tooltip = document.getElementById('portal-tooltip');
             this.isPointerLocked = false;
+
+            // Performance: Store references instead of traversing
+            this.blinkingLights = [];
+            this.glowLights = [];
+            this.neonStrips = [];
+
+            // Performance: Shared materials (reuse instead of creating new)
+            this.sharedMaterials = {};
+
+            // Performance: Cache DOM elements
+            this.hudElements = {};
+
+            // Performance: Frustum for culling
+            this.frustum = new THREE.Frustum();
+            this.frustumMatrix = new THREE.Matrix4();
+
+            // Performance: Throttle timers
+            this.lastHudUpdate = 0;
+            this.lastLightCull = 0;
+            this.frameCount = 0;
+
+            // Performance: Pre-allocated vectors (avoid GC)
+            this._tempVec3 = new THREE.Vector3();
+            this._moveDirection = new THREE.Vector3();
+            this._upAxis = new THREE.Vector3(0, 1, 0);
         }
 
         async init() {
+            // Performance: Cache DOM elements once
+            this.hudElements = {
+                sector: document.getElementById('sector'),
+                altitude: document.getElementById('altitude'),
+                signal: document.getElementById('signal')
+            };
+
             if (inheritedAttributes.sourceWorldName) {
                 const originDiv = document.getElementById('world-origin');
                 document.getElementById('origin-world-name').textContent = inheritedAttributes.sourceWorldName;
@@ -473,6 +505,9 @@
 
             document.getElementById('world-title').textContent = CURRENT_WORLD.name;
             document.getElementById('world-description').textContent = CURRENT_WORLD.description;
+
+            // Performance: Create shared materials before building
+            this.createSharedMaterials();
 
             this.setupScene();
             this.setupLighting();
@@ -498,6 +533,35 @@
 
             window.worldInstance = this;
             this.animate();
+        }
+
+        createSharedMaterials() {
+            // Pre-create shared materials for neon strips (3 colors instead of 200+ materials)
+            const accentColors = [0xff00ff, 0x00ffff, 0xff6b00];
+            accentColors.forEach(color => {
+                this.sharedMaterials[`strip_${color}`] = new THREE.MeshBasicMaterial({
+                    color: color,
+                    transparent: true,
+                    opacity: 0.8
+                });
+            });
+
+            // Shared building materials
+            const buildingColors = [0x1a0028, 0x0d001a, 0x14001f, 0x0a0014];
+            buildingColors.forEach(color => {
+                this.sharedMaterials[`building_${color}`] = new THREE.MeshStandardMaterial({
+                    color: color,
+                    roughness: 0.3,
+                    metalness: 0.7
+                });
+            });
+
+            // Shared spire material
+            this.sharedMaterials.spire = new THREE.MeshStandardMaterial({
+                color: 0x333333,
+                metalness: 0.9,
+                roughness: 0.2
+            });
         }
 
         setupScene() {
@@ -646,17 +710,18 @@
             const buildingColors = [0x1a0028, 0x0d001a, 0x14001f, 0x0a0014];
             const accentColors = [0xff00ff, 0x00ffff, 0xff6b00];
 
+            // Performance: Reuse geometry for strips of similar size
+            const stripGeometryCache = {};
+
             for (let i = 0; i < 40; i++) {
                 const width = 5 + Math.random() * 10;
                 const height = 15 + Math.random() * 50;
                 const depth = 5 + Math.random() * 10;
 
                 const buildingGeometry = new THREE.BoxGeometry(width, height, depth);
-                const buildingMaterial = new THREE.MeshStandardMaterial({
-                    color: buildingColors[Math.floor(Math.random() * buildingColors.length)],
-                    roughness: 0.3,
-                    metalness: 0.7
-                });
+                // Performance: Use shared material
+                const colorKey = buildingColors[Math.floor(Math.random() * buildingColors.length)];
+                const buildingMaterial = this.sharedMaterials[`building_${colorKey}`];
 
                 const building = new THREE.Mesh(buildingGeometry, buildingMaterial);
 
@@ -675,41 +740,45 @@
                 const stripCount = Math.floor(height / 10);
                 const accentColor = accentColors[Math.floor(Math.random() * accentColors.length)];
 
+                // Performance: Cache strip geometry by dimensions
+                const geoKey = `${Math.round(width)}_${Math.round(depth)}`;
+                if (!stripGeometryCache[geoKey]) {
+                    stripGeometryCache[geoKey] = new THREE.BoxGeometry(width + 0.2, 0.3, depth + 0.2);
+                }
+
                 for (let j = 0; j < stripCount; j++) {
-                    const stripGeometry = new THREE.BoxGeometry(width + 0.2, 0.3, depth + 0.2);
-                    const stripMaterial = new THREE.MeshBasicMaterial({
-                        color: accentColor,
-                        transparent: true,
-                        opacity: 0.8
-                    });
-                    const strip = new THREE.Mesh(stripGeometry, stripMaterial);
+                    // Performance: Use shared material instead of creating new one
+                    const strip = new THREE.Mesh(
+                        stripGeometryCache[geoKey],
+                        this.sharedMaterials[`strip_${accentColor}`]
+                    );
                     strip.position.set(x, j * 10 + 5, z);
                     this.scene.add(strip);
+                    this.neonStrips.push(strip);
 
-                    // Add glow
+                    // Performance: Store glow light in array for distance culling
                     const glowLight = new THREE.PointLight(accentColor, 0.3, 10);
                     glowLight.position.copy(strip.position);
+                    glowLight.visible = false; // Start hidden, enable when close
                     this.scene.add(glowLight);
+                    this.glowLights.push(glowLight);
                 }
 
                 // Add rooftop antenna/spire on some buildings
                 if (Math.random() > 0.6) {
                     const spireGeometry = new THREE.ConeGeometry(0.5, 8, 4);
-                    const spireMaterial = new THREE.MeshStandardMaterial({
-                        color: 0x333333,
-                        metalness: 0.9,
-                        roughness: 0.2
-                    });
-                    const spire = new THREE.Mesh(spireGeometry, spireMaterial);
+                    // Performance: Use shared spire material
+                    const spire = new THREE.Mesh(spireGeometry, this.sharedMaterials.spire);
                     spire.position.set(x, height + 4, z);
                     this.scene.add(spire);
 
-                    // Blinking light
+                    // Blinking light - store in array instead of using userData traverse
                     const blinkLight = new THREE.PointLight(0xff0000, 1, 20);
                     blinkLight.position.set(x, height + 8, z);
-                    blinkLight.userData.blink = true;
                     blinkLight.userData.blinkOffset = Math.random() * Math.PI * 2;
+                    blinkLight.visible = false; // Start hidden, enable when close
                     this.scene.add(blinkLight);
+                    this.blinkingLights.push(blinkLight);
                 }
             }
         }
@@ -1096,31 +1165,56 @@
         }
 
         updateHUD() {
-            // Update sector based on position
+            // Performance: Use cached DOM elements
             const sectorX = String.fromCharCode(65 + Math.floor((this.camera.position.x + 100) / 25) % 8);
             const sectorZ = Math.floor((this.camera.position.z + 100) / 25) % 8 + 1;
-            document.getElementById('sector').textContent = `${sectorX}-${sectorZ}`;
-
-            // Altitude
-            document.getElementById('altitude').textContent = `${Math.floor(this.camera.position.y)}m`;
-
-            // Signal strength (random flicker for effect)
+            this.hudElements.sector.textContent = `${sectorX}-${sectorZ}`;
+            this.hudElements.altitude.textContent = `${Math.floor(this.camera.position.y)}m`;
             const signal = 95 + Math.floor(Math.random() * 5);
-            document.getElementById('signal').textContent = `${signal}%`;
+            this.hudElements.signal.textContent = `${signal}%`;
+        }
+
+        // Performance: Distance-based light streaming
+        updateLightCulling() {
+            const camPos = this.camera.position;
+            const GLOW_DISTANCE = 40;      // Only show glow lights within 40 units
+            const BLINK_DISTANCE = 60;     // Only show blink lights within 60 units
+            const GLOW_DISTANCE_SQ = GLOW_DISTANCE * GLOW_DISTANCE;
+            const BLINK_DISTANCE_SQ = BLINK_DISTANCE * BLINK_DISTANCE;
+
+            // Cull glow lights by distance
+            for (let i = 0; i < this.glowLights.length; i++) {
+                const light = this.glowLights[i];
+                const dx = light.position.x - camPos.x;
+                const dz = light.position.z - camPos.z;
+                const distSq = dx * dx + dz * dz;
+                light.visible = distSq < GLOW_DISTANCE_SQ;
+            }
+
+            // Cull blinking lights by distance
+            for (let i = 0; i < this.blinkingLights.length; i++) {
+                const light = this.blinkingLights[i];
+                const dx = light.position.x - camPos.x;
+                const dz = light.position.z - camPos.z;
+                const distSq = dx * dx + dz * dz;
+                light.visible = distSq < BLINK_DISTANCE_SQ;
+            }
         }
 
         animate() {
             requestAnimationFrame(() => this.animate());
 
             const time = this.clock.getElapsedTime();
+            this.frameCount++;
 
             // Camera rotation
             this.camera.rotation.order = 'YXZ';
             this.camera.rotation.y = this.rotation.y;
             this.camera.rotation.x = this.rotation.x;
 
-            // Movement
-            const moveDirection = new THREE.Vector3();
+            // Performance: Reuse pre-allocated vector
+            const moveDirection = this._moveDirection;
+            moveDirection.set(0, 0, 0);
 
             if (this.isMobile && this.joystickActive) {
                 moveDirection.x = this.joystickVector.x;
@@ -1134,7 +1228,7 @@
 
             if (moveDirection.length() > 0) {
                 moveDirection.normalize();
-                moveDirection.applyAxisAngle(new THREE.Vector3(0, 1, 0), this.rotation.y);
+                moveDirection.applyAxisAngle(this._upAxis, this.rotation.y);
                 this.camera.position.add(moveDirection.multiplyScalar(this.moveSpeed));
             }
 
@@ -1144,17 +1238,18 @@
             }
 
             // Update portal animations
-            this.portals.forEach(portal => {
+            for (let i = 0; i < this.portals.length; i++) {
+                const portal = this.portals[i];
                 if (portal.userData.circleMaterial) {
                     portal.userData.circleMaterial.uniforms.time.value = time;
                 }
-            });
+            }
 
-            // Animate rain
-            if (this.rain) {
+            // Performance: Animate rain every other frame
+            if (this.rain && this.frameCount % 2 === 0) {
                 const positions = this.rain.geometry.attributes.position.array;
                 for (let i = 0; i < positions.length; i += 3) {
-                    positions[i + 1] -= 0.5;
+                    positions[i + 1] -= 1.0; // Double speed since updating half as often
                     if (positions[i + 1] < 0) {
                         positions[i + 1] = 80;
                     }
@@ -1162,26 +1257,38 @@
                 this.rain.geometry.attributes.position.needsUpdate = true;
             }
 
-            // Animate holograms
-            this.holograms.forEach(holo => {
-                holo.position.y += Math.sin(time * 2 + holo.userData.floatOffset) * 0.01;
-                holo.material.opacity = 0.5 + Math.sin(time * 3 + holo.userData.floatOffset) * 0.2;
-            });
-
-            // Blink antenna lights
-            this.scene.traverse(obj => {
-                if (obj.isPointLight && obj.userData.blink) {
-                    obj.intensity = Math.sin(time * 3 + obj.userData.blinkOffset) > 0.5 ? 1 : 0;
+            // Performance: Animate holograms every 3rd frame
+            if (this.frameCount % 3 === 0) {
+                for (let i = 0; i < this.holograms.length; i++) {
+                    const holo = this.holograms[i];
+                    holo.position.y += Math.sin(time * 2 + holo.userData.floatOffset) * 0.03;
+                    holo.material.opacity = 0.5 + Math.sin(time * 3 + holo.userData.floatOffset) * 0.2;
                 }
-            });
+            }
 
-            // Update HUD
-            if (Math.floor(time * 2) % 2 === 0) {
+            // Performance: Update blinking lights from stored array (no traverse!)
+            // Also only update visible ones
+            for (let i = 0; i < this.blinkingLights.length; i++) {
+                const light = this.blinkingLights[i];
+                if (light.visible) {
+                    light.intensity = Math.sin(time * 3 + light.userData.blinkOffset) > 0.5 ? 1 : 0;
+                }
+            }
+
+            // Performance: Update light culling every 10 frames
+            if (this.frameCount % 10 === 0) {
+                this.updateLightCulling();
+            }
+
+            // Performance: Update HUD every 30 frames (~0.5 second at 60fps)
+            if (this.frameCount % 30 === 0) {
                 this.updateHUD();
             }
 
-            // Update hover
-            this.updateHover();
+            // Performance: Update hover every 3 frames
+            if (this.frameCount % 3 === 0) {
+                this.updateHover();
+            }
 
             this.renderer.render(this.scene, this.camera);
         }
