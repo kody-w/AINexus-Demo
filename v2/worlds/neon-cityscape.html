@@ -1,0 +1,1196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>Neon Cityscape - Neon Nexus</title>
+
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+
+        body {
+            font-family: 'Courier New', monospace;
+            background: #000;
+            color: #fff;
+            overflow: hidden;
+            position: fixed;
+            width: 100%;
+            height: 100%;
+        }
+
+        #three-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            touch-action: none;
+        }
+
+        #loading {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, #0a0014 0%, #1a0033 50%, #0d001a 100%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+            transition: opacity 0.5s ease;
+        }
+
+        .loading-title {
+            font-size: 2.5em;
+            font-weight: bold;
+            letter-spacing: 0.3em;
+            background: linear-gradient(45deg, #ff00ff, #00ffff, #ff6b00);
+            background-size: 400% 100%;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            animation: shimmer 2s ease-in-out infinite, glitch 0.3s infinite;
+            margin-bottom: 30px;
+            text-shadow: 0 0 20px rgba(255, 0, 255, 0.5);
+        }
+
+        @keyframes glitch {
+            0%, 90%, 100% { transform: translate(0); }
+            92% { transform: translate(-2px, 1px); }
+            94% { transform: translate(2px, -1px); }
+            96% { transform: translate(-1px, 2px); }
+            98% { transform: translate(1px, -2px); }
+        }
+
+        .loading-spinner {
+            width: 60px;
+            height: 60px;
+            border: 3px solid rgba(255, 0, 255, 0.2);
+            border-top-color: #ff00ff;
+            border-right-color: #00ffff;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        @keyframes shimmer {
+            0%, 100% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+        }
+
+        .world-ui {
+            position: absolute;
+            top: env(safe-area-inset-top, 20px);
+            left: env(safe-area-inset-left, 20px);
+            z-index: 1001;
+            pointer-events: none;
+        }
+
+        .world-title {
+            font-size: 2.5em;
+            font-weight: bold;
+            letter-spacing: 0.15em;
+            text-transform: uppercase;
+            background: linear-gradient(45deg, #ff00ff, #00ffff, #ff6b00, #ff00ff);
+            background-size: 400% 100%;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            animation: shimmer 5s ease-in-out infinite;
+            margin-bottom: 10px;
+            text-shadow: 0 0 30px rgba(255, 0, 255, 0.8);
+        }
+
+        .world-description {
+            font-size: 1em;
+            color: rgba(0, 255, 255, 0.8);
+            max-width: 400px;
+            text-shadow: 0 0 10px rgba(0, 255, 255, 0.5);
+        }
+
+        #world-origin {
+            position: fixed;
+            top: env(safe-area-inset-top, 20px);
+            right: env(safe-area-inset-right, 20px);
+            background: rgba(10, 0, 20, 0.9);
+            padding: 10px 20px;
+            border-radius: 5px;
+            border: 1px solid rgba(255, 0, 255, 0.5);
+            backdrop-filter: blur(10px);
+            z-index: 1000;
+            opacity: 0;
+            transform: translateX(20px);
+            transition: all 0.3s ease;
+        }
+
+        #world-origin.visible {
+            opacity: 1;
+            transform: translateX(0);
+        }
+
+        .controls-hint {
+            position: fixed;
+            bottom: env(safe-area-inset-bottom, 20px);
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(10, 0, 20, 0.9);
+            padding: 10px 25px;
+            border-radius: 5px;
+            font-size: 12px;
+            color: rgba(0, 255, 255, 0.8);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(0, 255, 255, 0.3);
+            z-index: 1000;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+
+        .portal-tooltip {
+            position: fixed;
+            background: rgba(10, 0, 20, 0.95);
+            padding: 15px 25px;
+            border-radius: 5px;
+            border: 2px solid rgba(255, 0, 255, 0.7);
+            backdrop-filter: blur(10px);
+            z-index: 1000;
+            pointer-events: none;
+            opacity: 0;
+            transition: all 0.3s ease;
+            box-shadow: 0 0 30px rgba(255, 0, 255, 0.3);
+        }
+
+        .portal-tooltip.visible {
+            opacity: 1;
+        }
+
+        .tooltip-title {
+            font-size: 18px;
+            font-weight: bold;
+            color: #ff00ff;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+
+        .tooltip-description {
+            font-size: 14px;
+            color: rgba(0, 255, 255, 0.8);
+            margin-top: 5px;
+        }
+
+        .mobile-controls {
+            display: none;
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            padding: env(safe-area-inset-bottom, 20px);
+            z-index: 1000;
+        }
+
+        .mobile-controls.show {
+            display: block;
+        }
+
+        .joystick-container {
+            width: 120px;
+            height: 120px;
+            background: rgba(255, 0, 255, 0.1);
+            border-radius: 50%;
+            border: 2px solid rgba(255, 0, 255, 0.5);
+            position: relative;
+            margin: 20px;
+            touch-action: none;
+            box-shadow: 0 0 20px rgba(255, 0, 255, 0.3);
+        }
+
+        .joystick-handle {
+            width: 50px;
+            height: 50px;
+            background: linear-gradient(45deg, #ff00ff, #00ffff);
+            border-radius: 50%;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            box-shadow: 0 0 20px rgba(255, 0, 255, 0.8);
+        }
+
+        .notification {
+            position: fixed;
+            top: 80px;
+            left: 50%;
+            transform: translateX(-50%) translateY(-100px);
+            background: rgba(10, 0, 20, 0.95);
+            padding: 15px 30px;
+            border-radius: 5px;
+            border: 1px solid rgba(255, 0, 255, 0.7);
+            z-index: 2000;
+            transition: transform 0.3s ease;
+            color: #ff00ff;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            box-shadow: 0 0 30px rgba(255, 0, 255, 0.5);
+        }
+
+        .notification.show {
+            transform: translateX(-50%) translateY(0);
+        }
+
+        .back-button {
+            position: fixed;
+            top: env(safe-area-inset-top, 20px);
+            left: env(safe-area-inset-left, 20px);
+            width: 50px;
+            height: 50px;
+            background: rgba(10, 0, 20, 0.9);
+            border: 2px solid rgba(255, 0, 255, 0.5);
+            border-radius: 5px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            z-index: 1002;
+            transition: all 0.3s ease;
+            margin-top: 80px;
+        }
+
+        .back-button:hover {
+            background: rgba(255, 0, 255, 0.3);
+            border-color: #ff00ff;
+            box-shadow: 0 0 20px rgba(255, 0, 255, 0.5);
+        }
+
+        .back-button svg {
+            width: 24px;
+            height: 24px;
+            color: #ff00ff;
+        }
+
+        /* Scanline effect */
+        .scanlines {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 999;
+            background: repeating-linear-gradient(
+                0deg,
+                rgba(0, 0, 0, 0.1) 0px,
+                rgba(0, 0, 0, 0.1) 1px,
+                transparent 1px,
+                transparent 2px
+            );
+            opacity: 0.3;
+        }
+
+        /* HUD Stats */
+        .hud-stats {
+            position: fixed;
+            bottom: env(safe-area-inset-bottom, 20px);
+            right: env(safe-area-inset-right, 20px);
+            background: rgba(10, 0, 20, 0.8);
+            padding: 15px;
+            border-radius: 5px;
+            border: 1px solid rgba(0, 255, 255, 0.3);
+            font-size: 12px;
+            color: #00ffff;
+            z-index: 1001;
+            font-family: 'Courier New', monospace;
+        }
+
+        .hud-stats .stat {
+            margin: 5px 0;
+        }
+
+        .hud-stats .label {
+            color: rgba(255, 255, 255, 0.5);
+        }
+
+        .hud-stats .value {
+            color: #ff00ff;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div id="loading">
+        <h1 class="loading-title">NEON CITYSCAPE</h1>
+        <div class="loading-spinner"></div>
+    </div>
+
+    <div id="three-container"></div>
+    <div class="scanlines"></div>
+
+    <div class="world-ui">
+        <h1 class="world-title" id="world-title">Neon Cityscape</h1>
+        <p class="world-description" id="world-description">A sprawling cyberpunk metropolis of towering holographic billboards</p>
+    </div>
+
+    <div id="world-origin">
+        <span style="font-size: 12px; color: rgba(0, 255, 255, 0.6);">ORIGIN: </span>
+        <span id="origin-world-name" style="color: #ff00ff; font-weight: bold;"></span>
+    </div>
+
+    <div class="hud-stats" id="hud-stats">
+        <div class="stat"><span class="label">SECTOR:</span> <span class="value" id="sector">A-7</span></div>
+        <div class="stat"><span class="label">ALTITUDE:</span> <span class="value" id="altitude">0m</span></div>
+        <div class="stat"><span class="label">SIGNAL:</span> <span class="value" id="signal">100%</span></div>
+    </div>
+
+    <div class="back-button" id="back-button" title="Return to Hub">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M19 12H5M12 19l-7-7 7-7"/>
+        </svg>
+    </div>
+
+    <div class="controls-hint" id="controls-hint">
+        WASD // MOVE | MOUSE // LOOK | CLICK // ENTER PORTAL
+    </div>
+
+    <div class="portal-tooltip" id="portal-tooltip">
+        <div class="tooltip-title"></div>
+        <div class="tooltip-description"></div>
+    </div>
+
+    <div class="mobile-controls" id="mobile-controls">
+        <div class="joystick-container" id="movement-joystick">
+            <div class="joystick-handle" id="movement-handle"></div>
+        </div>
+    </div>
+
+    <div class="notification" id="notification"></div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+    <script>
+    // =============================================
+    // NEON CITYSCAPE - Cyberpunk Metropolis
+    // =============================================
+
+    const WORLD_CONFIG = {
+        id: 'neon-cityscape',
+        name: 'Neon Cityscape',
+        icon: '🏙️',
+        description: 'A sprawling cyberpunk metropolis of towering holographic billboards',
+
+        // Cyberpunk magenta/cyan theme
+        ambientColor: 0x1a0028,
+        fogColor: 0x0a0014,
+        groundColor: 0x0d001a,
+        skyColor: 0x1a0033,
+        portalColor1: 0xff00ff,
+        portalColor2: 0x00ffff,
+
+        particleCount: 2000,
+        cameraHeight: 2,
+        fogNear: 5,
+        fogFar: 100,
+        moveSpeed: 0.18,
+        lookSpeed: 0.002
+    };
+
+    function parseInheritedAttributes() {
+        const params = new URLSearchParams(window.location.search);
+        const inherited = {};
+        inherited.sourceWorld = params.get('from') || null;
+        inherited.sourceWorldName = params.get('fromName') || null;
+        inherited.sourceNexus = params.get('fromNexus') || null;
+        inherited.returnAddress = params.get('nexusReturn') || null;
+        if (params.has('portalColor1')) inherited.portalColor1 = parseInt(params.get('portalColor1'), 16);
+        if (params.has('portalColor2')) inherited.portalColor2 = parseInt(params.get('portalColor2'), 16);
+        return inherited;
+    }
+
+    const inheritedAttributes = parseInheritedAttributes();
+    const CURRENT_WORLD = { ...WORLD_CONFIG, ...inheritedAttributes };
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+
+    function detectForkIdentity() {
+        const hostname = window.location.hostname;
+        if (hostname.endsWith('.github.io')) {
+            const owner = hostname.replace('.github.io', '');
+            const pathParts = window.location.pathname.split('/').filter(p => p);
+            const repo = pathParts[0] || 'AINexus-Demo';
+            return { owner, repo };
+        }
+        return { owner: 'local', repo: 'AINexus-Demo' };
+    }
+    const FORK_IDENTITY = detectForkIdentity();
+
+    // =============================================
+    // NEON CITYSCAPE WORLD
+    // =============================================
+    class NeonCityscape {
+        constructor() {
+            this.scene = null;
+            this.camera = null;
+            this.renderer = null;
+            this.portals = [];
+            this.buildings = [];
+            this.holograms = [];
+            this.raycaster = new THREE.Raycaster();
+            this.clock = new THREE.Clock();
+
+            this.moveSpeed = CURRENT_WORLD.moveSpeed;
+            this.lookSpeed = CURRENT_WORLD.lookSpeed;
+            this.keys = { w: false, a: false, s: false, d: false };
+            this.rotation = { x: 0, y: 0 };
+
+            this.isMobile = isMobile;
+            this.joystickActive = false;
+            this.joystickVector = new THREE.Vector2();
+            this.lookTouch = null;
+            this.joystickTouch = null;
+
+            this.hoveredPortal = null;
+            this.tooltip = document.getElementById('portal-tooltip');
+            this.isPointerLocked = false;
+        }
+
+        async init() {
+            if (inheritedAttributes.sourceWorldName) {
+                const originDiv = document.getElementById('world-origin');
+                document.getElementById('origin-world-name').textContent = inheritedAttributes.sourceWorldName;
+                originDiv.classList.add('visible');
+            }
+
+            document.getElementById('world-title').textContent = CURRENT_WORLD.name;
+            document.getElementById('world-description').textContent = CURRENT_WORLD.description;
+
+            this.setupScene();
+            this.setupLighting();
+            this.createEnvironment();
+            this.createBuildings();
+            this.createHolograms();
+            this.createPortals();
+            this.setupEventListeners();
+            this.setupBackButton();
+
+            if (this.isMobile) {
+                document.getElementById('controls-hint').textContent =
+                    'TOUCH // LOOK | JOYSTICK // MOVE';
+                document.getElementById('mobile-controls').classList.add('show');
+            }
+
+            setTimeout(() => {
+                document.getElementById('loading').style.opacity = '0';
+                setTimeout(() => {
+                    document.getElementById('loading').style.display = 'none';
+                }, 500);
+            }, 500);
+
+            window.worldInstance = this;
+            this.animate();
+        }
+
+        setupScene() {
+            this.scene = new THREE.Scene();
+            this.scene.fog = new THREE.FogExp2(CURRENT_WORLD.fogColor, 0.015);
+
+            this.camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            this.camera.position.set(0, CURRENT_WORLD.cameraHeight, 10);
+
+            this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+            this.renderer.setSize(window.innerWidth, window.innerHeight);
+            this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            this.renderer.toneMapping = THREE.ReinhardToneMapping;
+            this.renderer.toneMappingExposure = 1.5;
+            document.getElementById('three-container').appendChild(this.renderer.domElement);
+        }
+
+        setupLighting() {
+            // Dim ambient
+            const ambientLight = new THREE.AmbientLight(0x1a0028, 0.2);
+            this.scene.add(ambientLight);
+
+            // Neon-colored lights
+            const magentaLight = new THREE.PointLight(0xff00ff, 2, 100);
+            magentaLight.position.set(-30, 20, -30);
+            this.scene.add(magentaLight);
+
+            const cyanLight = new THREE.PointLight(0x00ffff, 2, 100);
+            cyanLight.position.set(30, 25, 30);
+            this.scene.add(cyanLight);
+
+            const orangeLight = new THREE.PointLight(0xff6b00, 1.5, 80);
+            orangeLight.position.set(0, 30, -50);
+            this.scene.add(orangeLight);
+
+            // Street-level lights
+            for (let i = 0; i < 10; i++) {
+                const streetLight = new THREE.PointLight(
+                    Math.random() > 0.5 ? 0xff00ff : 0x00ffff,
+                    0.5,
+                    15
+                );
+                streetLight.position.set(
+                    (Math.random() - 0.5) * 80,
+                    8,
+                    (Math.random() - 0.5) * 80
+                );
+                this.scene.add(streetLight);
+            }
+        }
+
+        createEnvironment() {
+            // Dark metallic ground
+            const groundGeometry = new THREE.PlaneGeometry(200, 200, 50, 50);
+            const groundMaterial = new THREE.MeshStandardMaterial({
+                color: 0x0a0014,
+                roughness: 0.3,
+                metalness: 0.8
+            });
+
+            const ground = new THREE.Mesh(groundGeometry, groundMaterial);
+            ground.rotation.x = -Math.PI / 2;
+            this.scene.add(ground);
+
+            // Neon grid lines
+            const gridMaterial = new THREE.LineBasicMaterial({
+                color: 0xff00ff,
+                transparent: true,
+                opacity: 0.3
+            });
+
+            for (let i = -100; i <= 100; i += 10) {
+                const gridGeometry1 = new THREE.BufferGeometry().setFromPoints([
+                    new THREE.Vector3(i, 0.1, -100),
+                    new THREE.Vector3(i, 0.1, 100)
+                ]);
+                const gridGeometry2 = new THREE.BufferGeometry().setFromPoints([
+                    new THREE.Vector3(-100, 0.1, i),
+                    new THREE.Vector3(100, 0.1, i)
+                ]);
+                this.scene.add(new THREE.Line(gridGeometry1, gridMaterial));
+                this.scene.add(new THREE.Line(gridGeometry2, gridMaterial));
+            }
+
+            // Cyberpunk sky
+            const skyGeometry = new THREE.SphereGeometry(400, 32, 32);
+            const skyMaterial = new THREE.ShaderMaterial({
+                uniforms: {
+                    topColor: { value: new THREE.Color(0x0a0014) },
+                    bottomColor: { value: new THREE.Color(0x1a0033) },
+                    time: { value: 0 }
+                },
+                vertexShader: `
+                    varying vec3 vWorldPosition;
+                    void main() {
+                        vec4 worldPosition = modelMatrix * vec4(position, 1.0);
+                        vWorldPosition = worldPosition.xyz;
+                        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+                    }
+                `,
+                fragmentShader: `
+                    uniform vec3 topColor;
+                    uniform vec3 bottomColor;
+                    uniform float time;
+                    varying vec3 vWorldPosition;
+                    void main() {
+                        float h = normalize(vWorldPosition + 33.0).y;
+                        vec3 color = mix(bottomColor, topColor, max(pow(max(h, 0.0), 0.4), 0.0));
+
+                        // Add subtle animated gradient
+                        color += vec3(0.1, 0.0, 0.1) * sin(time * 0.5) * 0.1;
+
+                        gl_FragColor = vec4(color, 1.0);
+                    }
+                `,
+                side: THREE.BackSide
+            });
+            this.sky = new THREE.Mesh(skyGeometry, skyMaterial);
+            this.scene.add(this.sky);
+
+            // Rain particles
+            const rainCount = CURRENT_WORLD.particleCount;
+            const rainGeometry = new THREE.BufferGeometry();
+            const rainPositions = new Float32Array(rainCount * 3);
+
+            for (let i = 0; i < rainCount; i++) {
+                rainPositions[i * 3] = (Math.random() - 0.5) * 150;
+                rainPositions[i * 3 + 1] = Math.random() * 80;
+                rainPositions[i * 3 + 2] = (Math.random() - 0.5) * 150;
+            }
+
+            rainGeometry.setAttribute('position', new THREE.BufferAttribute(rainPositions, 3));
+
+            const rainMaterial = new THREE.PointsMaterial({
+                color: 0x00ffff,
+                size: 0.1,
+                transparent: true,
+                opacity: 0.6
+            });
+
+            this.rain = new THREE.Points(rainGeometry, rainMaterial);
+            this.scene.add(this.rain);
+        }
+
+        createBuildings() {
+            const buildingColors = [0x1a0028, 0x0d001a, 0x14001f, 0x0a0014];
+            const accentColors = [0xff00ff, 0x00ffff, 0xff6b00];
+
+            for (let i = 0; i < 40; i++) {
+                const width = 5 + Math.random() * 10;
+                const height = 15 + Math.random() * 50;
+                const depth = 5 + Math.random() * 10;
+
+                const buildingGeometry = new THREE.BoxGeometry(width, height, depth);
+                const buildingMaterial = new THREE.MeshStandardMaterial({
+                    color: buildingColors[Math.floor(Math.random() * buildingColors.length)],
+                    roughness: 0.3,
+                    metalness: 0.7
+                });
+
+                const building = new THREE.Mesh(buildingGeometry, buildingMaterial);
+
+                // Position buildings around the edges, leaving center clear
+                let x, z;
+                do {
+                    x = (Math.random() - 0.5) * 150;
+                    z = (Math.random() - 0.5) * 150;
+                } while (Math.abs(x) < 25 && Math.abs(z) < 25);
+
+                building.position.set(x, height / 2, z);
+                this.scene.add(building);
+                this.buildings.push(building);
+
+                // Add neon accent strips
+                const stripCount = Math.floor(height / 10);
+                const accentColor = accentColors[Math.floor(Math.random() * accentColors.length)];
+
+                for (let j = 0; j < stripCount; j++) {
+                    const stripGeometry = new THREE.BoxGeometry(width + 0.2, 0.3, depth + 0.2);
+                    const stripMaterial = new THREE.MeshBasicMaterial({
+                        color: accentColor,
+                        transparent: true,
+                        opacity: 0.8
+                    });
+                    const strip = new THREE.Mesh(stripGeometry, stripMaterial);
+                    strip.position.set(x, j * 10 + 5, z);
+                    this.scene.add(strip);
+
+                    // Add glow
+                    const glowLight = new THREE.PointLight(accentColor, 0.3, 10);
+                    glowLight.position.copy(strip.position);
+                    this.scene.add(glowLight);
+                }
+
+                // Add rooftop antenna/spire on some buildings
+                if (Math.random() > 0.6) {
+                    const spireGeometry = new THREE.ConeGeometry(0.5, 8, 4);
+                    const spireMaterial = new THREE.MeshStandardMaterial({
+                        color: 0x333333,
+                        metalness: 0.9,
+                        roughness: 0.2
+                    });
+                    const spire = new THREE.Mesh(spireGeometry, spireMaterial);
+                    spire.position.set(x, height + 4, z);
+                    this.scene.add(spire);
+
+                    // Blinking light
+                    const blinkLight = new THREE.PointLight(0xff0000, 1, 20);
+                    blinkLight.position.set(x, height + 8, z);
+                    blinkLight.userData.blink = true;
+                    blinkLight.userData.blinkOffset = Math.random() * Math.PI * 2;
+                    this.scene.add(blinkLight);
+                }
+            }
+        }
+
+        createHolograms() {
+            // Create floating holographic billboards
+            const holoTexts = ['NEXUS', 'CYBER', 'NEON', '2099', 'VOID'];
+
+            for (let i = 0; i < 8; i++) {
+                const canvas = document.createElement('canvas');
+                canvas.width = 512;
+                canvas.height = 256;
+                const ctx = canvas.getContext('2d');
+
+                // Hologram background
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+                ctx.fillRect(0, 0, 512, 256);
+
+                // Border
+                ctx.strokeStyle = Math.random() > 0.5 ? '#ff00ff' : '#00ffff';
+                ctx.lineWidth = 4;
+                ctx.strokeRect(10, 10, 492, 236);
+
+                // Text
+                ctx.font = 'bold 80px Courier New';
+                ctx.fillStyle = ctx.strokeStyle;
+                ctx.textAlign = 'center';
+                ctx.fillText(holoTexts[Math.floor(Math.random() * holoTexts.length)], 256, 160);
+
+                const texture = new THREE.CanvasTexture(canvas);
+                const holoMaterial = new THREE.MeshBasicMaterial({
+                    map: texture,
+                    transparent: true,
+                    opacity: 0.7,
+                    side: THREE.DoubleSide
+                });
+
+                const holoGeometry = new THREE.PlaneGeometry(15, 7.5);
+                const hologram = new THREE.Mesh(holoGeometry, holoMaterial);
+
+                hologram.position.set(
+                    (Math.random() - 0.5) * 80,
+                    20 + Math.random() * 20,
+                    (Math.random() - 0.5) * 80
+                );
+                hologram.rotation.y = Math.random() * Math.PI * 2;
+                hologram.userData.floatOffset = Math.random() * Math.PI * 2;
+
+                this.scene.add(hologram);
+                this.holograms.push(hologram);
+            }
+        }
+
+        createPortals() {
+            // Return to Neon Nexus hub
+            const hubPortal = this.createPortal(
+                '../index.html',
+                'Neon Nexus Hub',
+                'Return to the cyberpunk gateway',
+                '🌃',
+                new THREE.Vector3(0, 3, -20)
+            );
+            this.portals.push(hubPortal);
+
+            // Link to AINexus Prime (the original)
+            const primePortal = this.createPortal(
+                'https://kody-w.github.io/AINexus/v2/index.html',
+                'AINexus Prime',
+                'Travel to the original nexus federation',
+                '🌐',
+                new THREE.Vector3(-15, 3, -15)
+            );
+            this.portals.push(primePortal);
+        }
+
+        createPortal(url, name, description, icon, position) {
+            // Hexagonal portal frame
+            const hexShape = new THREE.Shape();
+            const size = 1.5;
+            for (let i = 0; i < 6; i++) {
+                const angle = (i / 6) * Math.PI * 2 - Math.PI / 2;
+                const x = Math.cos(angle) * size;
+                const y = Math.sin(angle) * size;
+                if (i === 0) hexShape.moveTo(x, y);
+                else hexShape.lineTo(x, y);
+            }
+            hexShape.closePath();
+
+            const frameGeometry = new THREE.ExtrudeGeometry(hexShape, {
+                depth: 0.1,
+                bevelEnabled: true,
+                bevelThickness: 0.05,
+                bevelSize: 0.05
+            });
+            const frameMaterial = new THREE.MeshStandardMaterial({
+                color: CURRENT_WORLD.portalColor1,
+                emissive: CURRENT_WORLD.portalColor1,
+                emissiveIntensity: 0.5,
+                metalness: 0.9,
+                roughness: 0.2
+            });
+            const frame = new THREE.Mesh(frameGeometry, frameMaterial);
+
+            const circleGeometry = new THREE.CircleGeometry(1.3, 6);
+            const circleMaterial = new THREE.ShaderMaterial({
+                uniforms: {
+                    time: { value: 0 },
+                    color1: { value: new THREE.Color(CURRENT_WORLD.portalColor1) },
+                    color2: { value: new THREE.Color(CURRENT_WORLD.portalColor2) }
+                },
+                vertexShader: `
+                    varying vec2 vUv;
+                    void main() {
+                        vUv = uv;
+                        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+                    }
+                `,
+                fragmentShader: `
+                    uniform float time;
+                    uniform vec3 color1;
+                    uniform vec3 color2;
+                    varying vec2 vUv;
+                    void main() {
+                        vec2 center = vUv - 0.5;
+                        float dist = length(center);
+                        float wave = sin(dist * 15.0 - time * 3.0) * 0.5 + 0.5;
+                        float glitch = sin(time * 20.0 + vUv.y * 50.0) * 0.02;
+                        vec3 color = mix(color1, color2, wave + glitch);
+                        float alpha = 1.0 - smoothstep(0.0, 0.5, dist);
+
+                        // Add scanline effect
+                        float scanline = sin(vUv.y * 100.0 + time * 5.0) * 0.1;
+                        color += scanline;
+
+                        gl_FragColor = vec4(color, alpha * 0.9);
+                    }
+                `,
+                transparent: true,
+                side: THREE.DoubleSide
+            });
+            const circle = new THREE.Mesh(circleGeometry, circleMaterial);
+            circle.position.z = 0.1;
+
+            const portal = new THREE.Group();
+            portal.add(frame);
+            portal.add(circle);
+            portal.position.copy(position);
+            portal.lookAt(0, position.y, 0);
+
+            const light = new THREE.PointLight(CURRENT_WORLD.portalColor1, 1, 15);
+            portal.add(light);
+
+            portal.userData = {
+                url: url,
+                name: name,
+                description: description,
+                icon: icon,
+                circleMaterial: circleMaterial
+            };
+
+            this.scene.add(portal);
+            return portal;
+        }
+
+        setupBackButton() {
+            document.getElementById('back-button').addEventListener('click', () => {
+                this.enterWorld('../index.html');
+            });
+        }
+
+        setupEventListeners() {
+            window.addEventListener('resize', () => {
+                this.camera.aspect = window.innerWidth / window.innerHeight;
+                this.camera.updateProjectionMatrix();
+                this.renderer.setSize(window.innerWidth, window.innerHeight);
+            });
+
+            document.addEventListener('keydown', (e) => {
+                const key = e.key.toLowerCase();
+                if (key in this.keys) this.keys[key] = true;
+            });
+
+            document.addEventListener('keyup', (e) => {
+                const key = e.key.toLowerCase();
+                if (key in this.keys) this.keys[key] = false;
+            });
+
+            if (!this.isMobile) {
+                this.renderer.domElement.addEventListener('click', () => {
+                    if (!this.isPointerLocked) {
+                        this.renderer.domElement.requestPointerLock();
+                    } else {
+                        this.checkPortalClick();
+                    }
+                });
+
+                document.addEventListener('pointerlockchange', () => {
+                    this.isPointerLocked = document.pointerLockElement === this.renderer.domElement;
+                });
+
+                document.addEventListener('mousemove', (e) => {
+                    if (this.isPointerLocked) {
+                        this.rotation.y -= e.movementX * this.lookSpeed;
+                        this.rotation.x -= e.movementY * this.lookSpeed;
+                        this.rotation.x = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, this.rotation.x));
+                    }
+                });
+            } else {
+                this.setupMobileControls();
+            }
+        }
+
+        setupMobileControls() {
+            const joystickContainer = document.getElementById('movement-joystick');
+            const joystickHandle = document.getElementById('movement-handle');
+            const container = document.getElementById('three-container');
+
+            joystickContainer.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                this.joystickTouch = e.touches[0].identifier;
+                this.joystickActive = true;
+            }, { passive: false });
+
+            joystickContainer.addEventListener('touchmove', (e) => {
+                e.preventDefault();
+                for (let touch of e.touches) {
+                    if (touch.identifier === this.joystickTouch) {
+                        const rect = joystickContainer.getBoundingClientRect();
+                        const centerX = rect.left + rect.width / 2;
+                        const centerY = rect.top + rect.height / 2;
+
+                        let dx = touch.clientX - centerX;
+                        let dy = touch.clientY - centerY;
+                        const distance = Math.sqrt(dx * dx + dy * dy);
+                        const maxDistance = rect.width / 2 - 25;
+
+                        if (distance > maxDistance) {
+                            dx = (dx / distance) * maxDistance;
+                            dy = (dy / distance) * maxDistance;
+                        }
+
+                        joystickHandle.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
+                        this.joystickVector.set(dx / maxDistance, dy / maxDistance);
+                    }
+                }
+            }, { passive: false });
+
+            joystickContainer.addEventListener('touchend', (e) => {
+                for (let touch of e.changedTouches) {
+                    if (touch.identifier === this.joystickTouch) {
+                        this.joystickTouch = null;
+                        this.joystickActive = false;
+                        joystickHandle.style.transform = 'translate(-50%, -50%)';
+                        this.joystickVector.set(0, 0);
+                    }
+                }
+            });
+
+            container.addEventListener('touchstart', (e) => {
+                for (let touch of e.touches) {
+                    if (touch.identifier !== this.joystickTouch) {
+                        this.lookTouch = {
+                            id: touch.identifier,
+                            startX: touch.clientX,
+                            startY: touch.clientY,
+                            lastX: touch.clientX,
+                            lastY: touch.clientY
+                        };
+                        break;
+                    }
+                }
+            });
+
+            container.addEventListener('touchmove', (e) => {
+                e.preventDefault();
+                for (let touch of e.touches) {
+                    if (this.lookTouch && touch.identifier === this.lookTouch.id) {
+                        const dx = touch.clientX - this.lookTouch.lastX;
+                        const dy = touch.clientY - this.lookTouch.lastY;
+
+                        this.rotation.y -= dx * 0.005;
+                        this.rotation.x -= dy * 0.005;
+                        this.rotation.x = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, this.rotation.x));
+
+                        this.lookTouch.lastX = touch.clientX;
+                        this.lookTouch.lastY = touch.clientY;
+                    }
+                }
+            }, { passive: false });
+
+            container.addEventListener('touchend', (e) => {
+                for (let touch of e.changedTouches) {
+                    if (this.lookTouch && touch.identifier === this.lookTouch.id) {
+                        const dx = Math.abs(touch.clientX - this.lookTouch.startX);
+                        const dy = Math.abs(touch.clientY - this.lookTouch.startY);
+                        if (dx < 10 && dy < 10) {
+                            this.checkPortalClick();
+                        }
+                        this.lookTouch = null;
+                    }
+                }
+            });
+        }
+
+        checkPortalClick() {
+            this.raycaster.setFromCamera(new THREE.Vector2(0, 0), this.camera);
+            const intersects = this.raycaster.intersectObjects(this.portals, true);
+
+            if (intersects.length > 0) {
+                let portal = intersects[0].object;
+                while (portal.parent && !portal.userData.url) {
+                    portal = portal.parent;
+                }
+
+                if (portal.userData.url) {
+                    this.showNotification(`CONNECTING TO ${portal.userData.name.toUpperCase()}...`);
+                    setTimeout(() => this.enterWorld(portal.userData.url), 500);
+                }
+            }
+        }
+
+        enterWorld(url) {
+            const params = new URLSearchParams();
+            const currentFile = window.location.pathname.split('/').pop() || 'neon-cityscape.html';
+            params.set('from', currentFile);
+            params.set('fromName', CURRENT_WORLD.name);
+            params.set('fromNexus', `${FORK_IDENTITY.owner}/${FORK_IDENTITY.repo}`);
+            params.set('ambientColor', CURRENT_WORLD.ambientColor.toString(16).padStart(6, '0'));
+            params.set('fogColor', CURRENT_WORLD.fogColor.toString(16).padStart(6, '0'));
+            params.set('portalColor1', CURRENT_WORLD.portalColor1.toString(16).padStart(6, '0'));
+            params.set('portalColor2', CURRENT_WORLD.portalColor2.toString(16).padStart(6, '0'));
+
+            const separator = url.includes('?') ? '&' : '?';
+            window.location.href = `${url}${separator}${params.toString()}`;
+        }
+
+        updateHover() {
+            this.raycaster.setFromCamera(new THREE.Vector2(0, 0), this.camera);
+            const intersects = this.raycaster.intersectObjects(this.portals, true);
+
+            if (intersects.length > 0) {
+                let portal = intersects[0].object;
+                while (portal.parent && !portal.userData.url) {
+                    portal = portal.parent;
+                }
+
+                if (portal.userData.url && this.hoveredPortal !== portal) {
+                    this.hoveredPortal = portal;
+
+                    const titleEl = this.tooltip.querySelector('.tooltip-title');
+                    const descEl = this.tooltip.querySelector('.tooltip-description');
+
+                    titleEl.textContent = `${portal.userData.icon} ${portal.userData.name}`;
+                    descEl.textContent = portal.userData.description;
+
+                    this.tooltip.classList.add('visible');
+
+                    const screenPos = this.getScreenPosition(portal.position);
+                    this.tooltip.style.left = `${screenPos.x}px`;
+                    this.tooltip.style.top = `${screenPos.y - 100}px`;
+                }
+            } else {
+                if (this.hoveredPortal) {
+                    this.hoveredPortal = null;
+                    this.tooltip.classList.remove('visible');
+                }
+            }
+        }
+
+        getScreenPosition(position) {
+            const vector = position.clone();
+            vector.project(this.camera);
+            return {
+                x: (vector.x * 0.5 + 0.5) * window.innerWidth,
+                y: (-vector.y * 0.5 + 0.5) * window.innerHeight
+            };
+        }
+
+        showNotification(message) {
+            const notification = document.getElementById('notification');
+            notification.textContent = message;
+            notification.classList.add('show');
+            setTimeout(() => notification.classList.remove('show'), 3000);
+        }
+
+        updateHUD() {
+            // Update sector based on position
+            const sectorX = String.fromCharCode(65 + Math.floor((this.camera.position.x + 100) / 25) % 8);
+            const sectorZ = Math.floor((this.camera.position.z + 100) / 25) % 8 + 1;
+            document.getElementById('sector').textContent = `${sectorX}-${sectorZ}`;
+
+            // Altitude
+            document.getElementById('altitude').textContent = `${Math.floor(this.camera.position.y)}m`;
+
+            // Signal strength (random flicker for effect)
+            const signal = 95 + Math.floor(Math.random() * 5);
+            document.getElementById('signal').textContent = `${signal}%`;
+        }
+
+        animate() {
+            requestAnimationFrame(() => this.animate());
+
+            const time = this.clock.getElapsedTime();
+
+            // Camera rotation
+            this.camera.rotation.order = 'YXZ';
+            this.camera.rotation.y = this.rotation.y;
+            this.camera.rotation.x = this.rotation.x;
+
+            // Movement
+            const moveDirection = new THREE.Vector3();
+
+            if (this.isMobile && this.joystickActive) {
+                moveDirection.x = this.joystickVector.x;
+                moveDirection.z = this.joystickVector.y;
+            } else {
+                if (this.keys.w) moveDirection.z -= 1;
+                if (this.keys.s) moveDirection.z += 1;
+                if (this.keys.a) moveDirection.x -= 1;
+                if (this.keys.d) moveDirection.x += 1;
+            }
+
+            if (moveDirection.length() > 0) {
+                moveDirection.normalize();
+                moveDirection.applyAxisAngle(new THREE.Vector3(0, 1, 0), this.rotation.y);
+                this.camera.position.add(moveDirection.multiplyScalar(this.moveSpeed));
+            }
+
+            // Update sky
+            if (this.sky) {
+                this.sky.material.uniforms.time.value = time;
+            }
+
+            // Update portal animations
+            this.portals.forEach(portal => {
+                if (portal.userData.circleMaterial) {
+                    portal.userData.circleMaterial.uniforms.time.value = time;
+                }
+            });
+
+            // Animate rain
+            if (this.rain) {
+                const positions = this.rain.geometry.attributes.position.array;
+                for (let i = 0; i < positions.length; i += 3) {
+                    positions[i + 1] -= 0.5;
+                    if (positions[i + 1] < 0) {
+                        positions[i + 1] = 80;
+                    }
+                }
+                this.rain.geometry.attributes.position.needsUpdate = true;
+            }
+
+            // Animate holograms
+            this.holograms.forEach(holo => {
+                holo.position.y += Math.sin(time * 2 + holo.userData.floatOffset) * 0.01;
+                holo.material.opacity = 0.5 + Math.sin(time * 3 + holo.userData.floatOffset) * 0.2;
+            });
+
+            // Blink antenna lights
+            this.scene.traverse(obj => {
+                if (obj.isPointLight && obj.userData.blink) {
+                    obj.intensity = Math.sin(time * 3 + obj.userData.blinkOffset) > 0.5 ? 1 : 0;
+                }
+            });
+
+            // Update HUD
+            if (Math.floor(time * 2) % 2 === 0) {
+                this.updateHUD();
+            }
+
+            // Update hover
+            this.updateHover();
+
+            this.renderer.render(this.scene, this.camera);
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        const world = new NeonCityscape();
+        world.init();
+    });
+    </script>
+</body>
+</html>

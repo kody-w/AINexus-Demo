@@ -1,0 +1,132 @@
+{
+  "$schema": "./schemas/nexus.schema.json",
+  "version": "2.0.0",
+  "schemaVersion": 1,
+
+  "identity": {
+    "id": "neon-nexus",
+    "name": "Neon Nexus",
+    "shortName": "NeonNX",
+    "description": "A cyberpunk gateway to neon-lit digital realms",
+    "icon": "🌃",
+    "owner": {
+      "name": "kody-w",
+      "url": "https://github.com/kody-w",
+      "avatar": "https://github.com/kody-w.png"
+    },
+    "homepage": "https://kody-w.github.io/AINexus-Demo/v2/",
+    "repository": "https://github.com/kody-w/AINexus-Demo",
+    "license": "MIT",
+    "forkedFrom": "https://kody-w.github.io/AINexus/v2/"
+  },
+
+  "github": {
+    "owner": "kody-w",
+    "repo": "AINexus-Demo",
+    "branch": "main"
+  },
+
+  "theme": {
+    "preset": "cyberpunk",
+    "colors": {
+      "primary": "#ff00ff",
+      "secondary": "#00ffff",
+      "accent": "#ff6b00",
+      "background": "#0a0014",
+      "text": "#ffffff"
+    },
+    "worldDefaults": {
+      "ambientColor": "1a0028",
+      "fogColor": "0a0014",
+      "groundColor": "0d001a",
+      "skyColor": "1a0033",
+      "portalColor1": "ff00ff",
+      "portalColor2": "00ffff",
+      "particleCount": 1500,
+      "fogNear": 8,
+      "fogFar": 60,
+      "cameraHeight": 2,
+      "moveSpeed": 0.18,
+      "lookSpeed": 0.002
+    },
+    "hub": {
+      "titleGradient": ["#ff00ff", "#00ffff", "#ff6b00"],
+      "portalGlowIntensity": 2.0,
+      "hudOpacity": 0.9
+    }
+  },
+
+  "worlds": {
+    "local": [
+      {
+        "id": "neon-cityscape",
+        "file": "worlds/neon-cityscape.html",
+        "name": "Neon Cityscape",
+        "description": "A sprawling cyberpunk metropolis of towering holographic billboards",
+        "icon": "🏙️",
+        "tags": ["cyberpunk", "city", "neon"],
+        "featured": true
+      }
+    ],
+    "external": []
+  },
+
+  "federation": {
+    "enabled": true,
+    "linkedNexuses": [
+      {
+        "id": "kody-w/AINexus",
+        "name": "AINexus Prime",
+        "url": "https://kody-w.github.io/AINexus/v2/",
+        "icon": "🌐",
+        "relationship": "upstream"
+      }
+    ],
+    "discovery": {
+      "allowPublicListing": true,
+      "showInDirectory": true,
+      "acceptIncomingLinks": true
+    },
+    "addressFormat": "nexus://{owner}/{repo}/{world}"
+  },
+
+  "features": {
+    "aiCompanion": {
+      "enabled": true,
+      "endpoint": "https://azfbusinessbot.azurewebsites.net/api/aidialog",
+      "requireApiKey": false
+    },
+    "multiplayer": {
+      "enabled": true,
+      "permanentRoom": "kody-w/AINexus-Demo:neon-nexus-permanent",
+      "maxPlayers": 50
+    },
+    "sceneRecording": {
+      "enabled": true,
+      "maxDuration": 300
+    },
+    "portalCreation": {
+      "enabled": true,
+      "allowExternalNexus": true
+    },
+    "offlineMode": {
+      "enabled": true,
+      "cacheWorlds": true
+    }
+  },
+
+  "api": {
+    "peerJs": {
+      "host": "0.peerjs.com",
+      "port": 443,
+      "secure": true
+    }
+  },
+
+  "metadata": {
+    "created": "2025-01-01T00:00:00Z",
+    "lastModified": "2025-01-01T00:00:00Z",
+    "generator": "AINexus v2",
+    "coreVersion": "2.0.0"
+  }
+}
